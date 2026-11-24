@@ -208,6 +208,17 @@ function ask({title,text='',input=null,ok='OK',cancel='Annulla',danger=false}){
 .stotal b{font-family:var(--sans);font-size:15px;letter-spacing:0;color:var(--ink);font-weight:600;margin-top:3px;text-transform:none}
 .lbl{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin:0 0 7px}
 #sName{margin-bottom:18px}
+.syncbtn{position:relative;padding:8px 11px}.syncbtn svg{width:18px;height:18px;display:block}
+.syncbtn .sdot{position:absolute;right:7px;top:7px;width:8px;height:8px;border-radius:50%;border:2px solid var(--panel)}
+.syncbtn[data-st=busy] svg{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.sstatus{font-size:13px;color:var(--txt);margin:0 0 14px;line-height:1.6}
+.sstatus .sdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+#syncModal .panel{width:min(480px,100%)}
+#syncModal code{font-family:var(--mono);font-size:11px;background:var(--bg);padding:2px 6px;border-radius:6px;color:var(--ink);word-break:break-all}
+#sOff .hint{margin-bottom:4px}
+.serr{font-size:13px;color:var(--out);margin:10px 0 0;line-height:1.5}
+button:disabled{opacity:.6;cursor:wait}
 .catcols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
 .catlist{display:grid;gap:6px;max-height:34vh;overflow:auto;margin-bottom:8px;padding-right:2px}
 .catrow{display:flex;gap:4px;align-items:center}
@@ -360,6 +371,7 @@ button.danger:hover{background:#c93a3f;color:#fff;border-color:#c93a3f}
     </div>
     <div class="hdr-right">
       <div class="clock" id="clock"></div>
+      <button class="themebtn syncbtn" id="syncBtn" title="Sincronizzazione"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.34 9.1 4 4 0 0 0 7 19z"/></svg><span class="sdot" id="syncDot"></span></button>
       <button class="themebtn" id="themeBtn" title="Cambia tema"><span class="ti" id="themeIco"></span><span id="themeTxt"></span></button>
     </div>
   </header>
@@ -429,7 +441,7 @@ button.danger:hover{background:#c93a3f;color:#fff;border-color:#c93a3f}
   </section>
 
   <footer>
-    <div class="foot-info"><b>NEXUS · Finanze personali · v3.3</b><span>Dati salvati solo su questo dispositivo · nessuna connessione</span></div>
+    <div class="foot-info"><b>NEXUS · Finanze personali · v4.0</b><span>Dati salvati solo su questo dispositivo · nessuna connessione</span></div>
     <div class="btns">
       <button id="pinBtn">Imposta PIN</button>
       <button id="expCsv">Esporta CSV</button>
@@ -501,6 +513,25 @@ button.danger:hover{background:#c93a3f;color:#fff;border-color:#c93a3f}
   </div>
 </div>
 
+<div class="modal" id="syncModal">
+  <div class="panel"><span class="corner c1"></span><span class="corner c2"></span>
+    <h3>Sincronizzazione</h3>
+    <p class="sstatus" id="sStatus"></p>
+    <div id="sSetup">
+      <p class="hint">Collega il tuo Google Drive per avere gli stessi dati su PC e telefono. I dati vengono <b>cifrati qui</b> con la tua password prima di partire: su Drive arriva solo testo illeggibile.</p>
+      <label class="lbl" for="sClient">Client ID di Google</label>
+      <input type="text" id="sClient" placeholder="123456-abc.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+      <label class="lbl" for="sPass" style="margin-top:14px">Password di cifratura</label>
+      <input type="password" id="sPass" placeholder="La stessa su tutti i dispositivi" autocomplete="new-password">
+      <p class="hint" style="margin-top:8px">Usa la stessa password su PC e telefono. Se la dimentichi, la copia su Drive non si può aprire (i dati sui dispositivi restano).</p>
+      <p class="hint">Indirizzo da autorizzare su Google: <code id="sOrigin"></code></p>
+    </div>
+    <div id="sOff"><p class="hint">Si sincronizza da solo quando apri l'app, dopo ogni modifica e quando torni online.</p></div>
+    <p class="serr" id="sErr" style="display:none"></p>
+    <div class="actions"><button class="ghost" id="sOffBtn" style="margin-right:auto">Scollega</button><button id="sClose">Chiudi</button><button class="pri" id="sGo">Collega Google Drive</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -548,7 +579,9 @@ function ensureColors(sec){ // dà un colore a ogni categoria che non ne ha anco
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const MESI=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
+let snap=null, syncReady=false; // syncReady: vero quando la parte di sincronizzazione è caricata
 let store=load();
+snap=snapshotOf(store);
 let db=store.sections.find(x=>x.id===store.active)||store.sections[0];
 if(store.sections.map(ensureColors).some(Boolean))save();
 let cur=new Date(); cur.setDate(1);
@@ -556,12 +589,12 @@ let yView=cur.getFullYear();
 
 function newSection(name,cats){const x={id:uid(),name,tx:[],budget:{},start:0,colors:{},cseq:0,cats:cats||JSON.parse(JSON.stringify(DEFAULT_CATS))};ensureColors(x);return x;}
 function cleanSection(x){
-  return {id:x.id||uid(),name:String(x.name||'Sezione').slice(0,40),start:+x.start||0,
+  return {id:x.id||uid(),u:+x.u||0,name:String(x.name||'Sezione').slice(0,40),start:+x.start||0,
     budget:x.budget&&typeof x.budget==='object'?x.budget:{},
     colors:x.colors&&typeof x.colors==='object'?x.colors:{},cseq:+x.cseq||0,usedN:Array.isArray(x.usedN)?x.usedN:[],
     cats:{entrata:Array.isArray(x.cats?.entrata)&&x.cats.entrata.length?x.cats.entrata.map(String):[...DEFAULT_CATS.entrata],
           uscita:Array.isArray(x.cats?.uscita)&&x.cats.uscita.length?x.cats.uscita.map(String):[...DEFAULT_CATS.uscita]},
-    tx:(Array.isArray(x.tx)?x.tx:[]).filter(t=>t&&t.date&&t.amt>0).map(t=>({id:t.id||uid(),date:String(t.date),desc:String(t.desc||''),amt:+t.amt,tipo:t.tipo==='entrata'?'entrata':'uscita',cat:String(t.cat||'Altro')}))};
+    tx:(Array.isArray(x.tx)?x.tx:[]).filter(t=>t&&t.date&&t.amt>0).map(t=>({id:t.id||uid(),date:String(t.date),desc:String(t.desc||''),amt:+t.amt,tipo:t.tipo==='entrata'?'entrata':'uscita',cat:String(t.cat||'Altro'),u:+t.u||0}))};
 }
 // legge sia il formato nuovo (con sezioni) sia quello vecchio (un solo elenco di movimenti)
 function fromData(d,keepPin){
@@ -569,13 +602,32 @@ function fromData(d,keepPin){
   if(Array.isArray(d.sections)&&d.sections.length) sections=d.sections.map(cleanSection);
   else if(Array.isArray(d.tx)) sections=[cleanSection({name:'Principale',tx:d.tx,budget:d.budget,start:d.start})];
   else throw new Error('formato');
-  return {v:2,pin:keepPin!==undefined?keepPin:(d.pin||null),active:sections.some(x=>x.id===d.active)?d.active:sections[0].id,sections};
+  const del={tx:{...(d.del?.tx||{})},sec:{...(d.del?.sec||{})}};
+  return {v:2,pin:keepPin!==undefined?keepPin:(d.pin||null),active:sections.some(x=>x.id===d.active)?d.active:sections[0].id,sections,del};
 }
 function load(){
   try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return fromData(d);}catch(e){}
-  const first=newSection('Principale');return {v:2,pin:null,active:first.id,sections:[first]};
+  const first=newSection('Principale');return {v:2,pin:null,active:first.id,sections:[first],del:{tx:{},sec:{}}};
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){toast('ERRORE DI SALVATAGGIO');}}
+/* REGISTRO DELLE MODIFICHE (serve a unire i dati di PC e telefono)
+   A ogni salvataggio confronto lo stato attuale con l'ultima "fotografia":
+   - movimento o sezione cambiati  → segno l'orario della modifica (u)
+   - movimento o sezione spariti   → li ricordo come cancellati (del), con l'orario */
+function txSig(t,sid){return JSON.stringify([sid,t.date,t.desc,t.amt,t.tipo,t.cat]);}
+function secSig(x){return JSON.stringify([x.name,x.start,x.cats,x.colors,x.budget,x.cseq,x.usedN]);}
+function snapshotOf(st){const m={tx:{},sec:{}};st.sections.forEach(x=>{m.sec[x.id]=secSig(x);x.tx.forEach(t=>m.tx[t.id]=txSig(t,x.id));});return m;}
+function stamp(){
+  if(!snap){snap=snapshotOf(store);return;}
+  const now=Date.now(),curSnap=snapshotOf(store);store.del=store.del||{tx:{},sec:{}};
+  store.sections.forEach(x=>{if(snap.sec[x.id]!==curSnap.sec[x.id])x.u=now;x.tx.forEach(t=>{if(snap.tx[t.id]!==curSnap.tx[t.id])t.u=now;});});
+  Object.keys(snap.tx).forEach(id=>{if(!(id in curSnap.tx))store.del.tx[id]=now;});
+  Object.keys(snap.sec).forEach(id=>{if(!(id in curSnap.sec))store.del.sec[id]=now;});
+  // un elemento cancellato e poi ricomparso (es. ripristino backup) non è più cancellato
+  Object.keys(curSnap.tx).forEach(id=>delete store.del.tx[id]);Object.keys(curSnap.sec).forEach(id=>delete store.del.sec[id]);
+  snap=curSnap;
+}
+function writeLocal(){try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){toast('ERRORE DI SALVATAGGIO');}}
+function save(){stamp();writeLocal();if(syncReady)scheduleSync();}
 const $=id=>document.getElementById(id);
 const eur=n=>n.toLocaleString('it-IT',{style:'currency',currency:'EUR'});
 const ym=d=>d.slice(0,7);
@@ -1107,6 +1159,200 @@ $('themeBtn').onclick=()=>{themeMode=THEMES[(THEMES.indexOf(themeMode)+1)%3];try
   applyTheme(true);toast('TEMA: '+TNAME[themeMode].toUpperCase());};
 if(mq&&mq.addEventListener)mq.addEventListener('change',()=>{if(themeMode==='auto')applyTheme(true);});
 applyTheme(false);
+
+
+/* =====================================================================
+   SINCRONIZZAZIONE CON GOOGLE DRIVE
+   - i dati vengono cifrati qui sul dispositivo (AES-256) con la tua password
+   - il file cifrato va nella cartella nascosta dell'app sul TUO Drive
+   - PC e telefono leggono quel file, uniscono i dati e lo riscrivono
+   ===================================================================== */
+const SYNC_KEY='nexus_sync', SYNC_FILE='nexus-sync.json', SCOPE='https://www.googleapis.com/auth/drive.appdata';
+let syncCfg={};try{syncCfg=JSON.parse(localStorage.getItem(SYNC_KEY))||{};}catch(e){}
+const saveCfg=()=>{try{localStorage.setItem(SYNC_KEY,JSON.stringify(syncCfg));}catch(e){}};
+let gTok=null,gTokExp=0,syncBusy=false,syncAgain=false,syncTimer=null,syncState='off',syncMsg='';
+
+// --- cifratura ---
+const b64e=buf=>btoa(String.fromCharCode(...new Uint8Array(buf)));
+const b64d=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));
+async function deriveKey(pass,saltB64){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64d(saltB64),iterations:250000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+}
+async function encryptObj(obj,key,salt){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(obj)));
+  return {nexus:1,salt,iv:b64e(iv),ct:b64e(ct),at:Date.now()};
+}
+async function decryptObj(p,key){ // con la password sbagliata AES-GCM rifiuta di decifrare
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(p.iv)},key,b64d(p.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+const getKey=()=>crypto.subtle.importKey('jwk',syncCfg.key,{name:'AES-GCM'},false,['encrypt','decrypt']);
+
+// --- accesso a Google ---
+function loadGis(){return new Promise((res,rej)=>{
+  if(window.google?.accounts?.oauth2)return res();
+  const sc=document.createElement('script');sc.src='https://accounts.google.com/gsi/client';sc.async=true;
+  sc.onload=()=>res();sc.onerror=()=>rej(new Error('offline'));document.head.appendChild(sc);});}
+async function getToken(interactive){
+  if(gTok&&Date.now()<gTokExp-60000)return gTok;
+  await loadGis();
+  return new Promise((res,rej)=>{
+    const tc=google.accounts.oauth2.initTokenClient({client_id:syncCfg.clientId,scope:SCOPE,
+      callback:r=>{if(r.error)return rej(new Error(r.error==='access_denied'?'negato':'login'));gTok=r.access_token;gTokExp=Date.now()+(+r.expires_in||3600)*1000;res(gTok);},
+      error_callback:e=>rej(new Error(e&&e.type==='popup_closed'?'chiuso':'login'))});
+    tc.requestAccessToken({prompt:interactive?'':'none'});
+  });
+}
+async function drive(path,opt={}){
+  const t=await getToken(opt.interactive);
+  const r=await fetch('https://www.googleapis.com'+path,{method:opt.method||'GET',body:opt.body,headers:{Authorization:'Bearer '+t,...(opt.headers||{})}});
+  if(r.status===401){gTok=null;throw new Error('login');}
+  if(r.status===404)throw new Error('404');
+  if(!r.ok)throw new Error('drive'+r.status);
+  return r;
+}
+async function findFile(interactive){
+  const q=encodeURIComponent(`name='${SYNC_FILE}'`);
+  const l=await (await drive(`/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`,{interactive})).json();
+  return l.files&&l.files[0]?l.files[0].id:null;
+}
+const readFile=async id=>(await drive(`/drive/v3/files/${id}?alt=media`)).json();
+async function writeFile(id,payload){
+  if(id){await drive(`/upload/drive/v3/files/${id}?uploadType=media`,{method:'PATCH',body:JSON.stringify(payload),headers:{'Content-Type':'application/json'}});return id;}
+  const b='nx'+Math.random().toString(36).slice(2);
+  const body=`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({name:SYNC_FILE,parents:['appDataFolder']})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(payload)}\r\n--${b}--`;
+  const r=await (await drive('/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',body,headers:{'Content-Type':`multipart/related; boundary=${b}`}})).json();
+  return r.id;
+}
+
+// --- unione dei dati: si tiene tutto, e per ogni elemento vince la modifica più recente ---
+function mergeIn(r){
+  const del={tx:{...store.del.tx},sec:{...store.del.sec}};
+  Object.entries(r.del?.tx||{}).forEach(([k,v])=>{del.tx[k]=Math.max(del.tx[k]||0,v);});
+  Object.entries(r.del?.sec||{}).forEach(([k,v])=>{del.sec[k]=Math.max(del.sec[k]||0,v);});
+  const byId=new Map(store.sections.map(x=>[x.id,x]));const order=store.sections.map(x=>x.id);
+  (r.sections||[]).map(cleanSection).forEach(rs=>{
+    const ls=byId.get(rs.id);
+    if(!ls){byId.set(rs.id,rs);order.push(rs.id);return;}
+    if(rs.u>ls.u){['u','name','start','cats','colors','budget','cseq','usedN'].forEach(f=>ls[f]=rs[f]);}
+    const tx=new Map(ls.tx.map(t=>[t.id,t]));
+    rs.tx.forEach(t=>{const lt=tx.get(t.id);if(!lt||t.u>lt.u)tx.set(t.id,t);});
+    ls.tx=[...tx.values()];
+  });
+  const secs=order.map(id=>byId.get(id)).filter(x=>!(del.sec[x.id]>=(x.u||0)));
+  secs.forEach(x=>{x.tx=x.tx.filter(t=>!(del.tx[t.id]>=(t.u||0)));ensureColors(x);});
+  if(!secs.length)secs.push(newSection('Principale'));
+  store.sections=secs;store.del=del;
+  if(!secs.some(x=>x.id===store.active))store.active=secs[0].id;
+}
+function afterMerge(){
+  snap=snapshotOf(store);writeLocal();
+  db=store.sections.find(x=>x.id===store.active)||store.sections[0];
+  lastListHtml='';seenIds=new Set(db.tx.map(t=>t.id));
+  fillCats($('fCat'),tipoSel());fillCats($('filter'),null,true);renderSections();render();
+}
+
+// --- il giro di sincronizzazione ---
+async function syncNow(interactive){
+  if(!syncCfg.connected)return;
+  if(syncBusy){syncAgain=true;return;}
+  syncBusy=true;setSync('busy');
+  try{
+    const key=await getKey();
+    let id=syncCfg.fileId||await findFile(interactive);
+    let remote=null;
+    if(id){try{remote=await readFile(id);}catch(e){if(e.message==='404'){id=await findFile(false);remote=id?await readFile(id):null;}else throw e;}}
+    if(remote&&remote.ct){
+      if(remote.salt!==syncCfg.salt)throw new Error('password');
+      let data;try{data=await decryptObj(remote,key);}catch(e){throw new Error('password');}
+      const before=JSON.stringify(store.sections);
+      mergeIn(data);
+      if(JSON.stringify(store.sections)!==before)afterMerge();else snap=snapshotOf(store);
+    }
+    syncCfg.fileId=await writeFile(id,await encryptObj({v:2,sections:store.sections,del:store.del},key,syncCfg.salt));
+    syncCfg.last=Date.now();saveCfg();setSync('ok');
+  }catch(e){
+    const m=e.message;
+    if(m==='login'||m==='chiuso'||m==='negato')setSync('login');
+    else if(m==='password')setSync('err','La password non corrisponde a quella usata sull\'altro dispositivo.');
+    else if(m==='offline'||!navigator.onLine)setSync('offline');
+    else setSync('err','Errore di Google Drive ('+m+'). Riprova tra poco.');
+  }finally{syncBusy=false;if(syncAgain){syncAgain=false;scheduleSync();}}
+}
+function scheduleSync(){if(!syncCfg.connected)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(false),2500);}
+
+// --- primo collegamento ---
+async function connectDrive(){
+  const cid=$('sClient').value.trim(),pass=$('sPass').value;
+  if(!/^[\w-]+\.apps\.googleusercontent\.com$/.test(cid))return syncErr('Il Client ID deve finire con .apps.googleusercontent.com');
+  if(pass.length<6)return syncErr('Scegli una password di almeno 6 caratteri.');
+  syncErr('');$('sGo').disabled=true;$('sGo').textContent='Collegamento…';
+  try{
+    syncCfg={clientId:cid};gTok=null;
+    const id=await findFile(true);                       // qui si apre la finestra di Google
+    let salt;
+    if(id){                                             // c'è già un file: uso la sua "chiave" e controllo la password
+      const remote=await readFile(id);salt=remote.salt;
+      const key=await deriveKey(pass,salt);
+      let data;try{data=await decryptObj(remote,key);}catch(e){throw new Error('password');}
+      syncCfg.key=await crypto.subtle.exportKey('jwk',key);
+      // primo collegamento di questo dispositivo: le sezioni con lo stesso nome sono la stessa sezione
+      const norm=t=>String(t).trim().toLowerCase();
+      store.sections.forEach(ls=>{
+        const m=(data.sections||[]).find(rs=>norm(rs.name)===norm(ls.name));
+        if(m&&m.id!==ls.id&&!store.sections.some(x=>x.id===m.id)){if(store.active===ls.id)store.active=m.id;ls.id=m.id;ls.u=0;}
+      });
+      snap=snapshotOf(store);writeLocal();db=store.sections.find(x=>x.id===store.active)||store.sections[0];
+    }else{                                              // primo dispositivo: creo una chiave nuova
+      salt=b64e(crypto.getRandomValues(new Uint8Array(16)));
+      syncCfg.key=await crypto.subtle.exportKey('jwk',await deriveKey(pass,salt));
+    }
+    Object.assign(syncCfg,{salt,fileId:id,connected:true});saveCfg();
+    $('sPass').value='';await syncNow(false);drawSyncModal();
+    toast(id?'DATI UNITI DA GOOGLE DRIVE':'SINCRONIZZAZIONE ATTIVA');
+  }catch(e){
+    syncCfg={clientId:cid};saveCfg();
+    syncErr(e.message==='password'?'Password sbagliata: sull\'altro dispositivo ne hai usata un\'altra.'
+      :e.message==='offline'?'Non riesco a raggiungere Google: controlla internet.'
+      :e.message==='chiuso'?'Hai chiuso la finestra di Google prima di finire.'
+      :e.message==='negato'?'Hai negato il permesso a Google Drive.'
+      :'Accesso non riuscito. Controlla il Client ID e che questo indirizzo sia tra le "origini autorizzate".');
+  }finally{$('sGo').disabled=false;drawSyncModal();}
+}
+function disconnectDrive(){
+  ask({title:'Scollegare Google Drive?',text:'I dati restano su questo dispositivo e su Drive, ma smettono di sincronizzarsi.',ok:'Scollega',danger:true}).then(ok=>{
+    if(!ok)return;try{if(gTok&&window.google)google.accounts.oauth2.revoke(gTok,()=>{});}catch(e){}
+    syncCfg={clientId:syncCfg.clientId};gTok=null;saveCfg();setSync('off');drawSyncModal();toast('SINCRONIZZAZIONE DISATTIVATA');});
+}
+
+// --- stato e finestra ---
+const SY={off:['Non attiva','var(--dim)'],busy:['Sincronizzo…','var(--acc)'],ok:['Sincronizzato','var(--in)'],
+  login:['Tocca per riconnettere','var(--warn)'],offline:['Offline: sincronizzo quando torna internet','var(--dim)'],err:['Errore','var(--out)']};
+function setSync(st,msg){syncState=st;syncMsg=msg||'';
+  const b=$('syncBtn');b.dataset.st=st;b.title='Sincronizzazione: '+SY[st][0];
+  $('syncDot').style.background=SY[st][1];if($('syncModal').classList.contains('on'))drawSyncModal();}
+function syncErr(t){$('sErr').textContent=t;$('sErr').style.display=t?'':'none';}
+function drawSyncModal(){
+  const on=!!syncCfg.connected;
+  $('sSetup').style.display=on?'none':'';$('sOff').style.display=on?'':'none';$('sOffBtn').style.visibility=on?'visible':'hidden';
+  if(!on&&syncCfg.clientId&&!$('sClient').value)$('sClient').value=syncCfg.clientId;
+  const t=syncCfg.last?new Date(syncCfg.last).toLocaleString('it-IT',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'mai';
+  $('sStatus').innerHTML=on?`<span class="sdot" style="background:${SY[syncState][1]}"></span><b>${SY[syncState][0]}</b> · ultima volta: ${t}${syncMsg?`<br><span style="color:var(--out)">${esc(syncMsg)}</span>`:''}`
+    :`<span class="sdot" style="background:var(--dim)"></span><b>Non attiva</b> · i dati restano solo su questo dispositivo`;
+  $('sGo').textContent=on?'Sincronizza ora':'Collega Google Drive';
+  $('sOrigin').textContent=location.origin;
+}
+$('syncBtn').onclick=()=>{if(syncCfg.connected&&syncState==='login'){syncNow(true);return;}syncErr('');drawSyncModal();$('syncModal').classList.add('on');};
+$('sGo').onclick=()=>{if(syncCfg.connected)syncNow(true);else connectDrive();};
+$('sOffBtn').onclick=disconnectDrive;
+$('sClose').onclick=()=>$('syncModal').classList.remove('on');
+// sincronizza all'apertura, quando torni sull'app e quando torna internet
+syncReady=true;
+if(syncCfg.connected){setSync('ok');setTimeout(()=>syncNow(false),900);}else setSync('off');
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syncCfg.connected&&Date.now()-(syncCfg.last||0)>20000)syncNow(false);});
+window.addEventListener('online',()=>{if(syncCfg.connected)syncNow(false);});
 
 /* orologio */
 function tick(){const d=new Date();$('clock').textContent=d.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}).toUpperCase()+' · '+d.toLocaleTimeString('it-IT');}

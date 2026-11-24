@@ -1,6 +1,6 @@
 // NEXUS: copia locale dell'app per usarla anche senza internet.
-// Quando aggiorni l'app, cambia il numero qui sotto (es. v2) così il telefono scarica la versione nuova.
-const CACHE = 'nexus-v8';
+// Quando aggiorni l'app, cambia il numero qui sotto, così il telefono scarica la versione nuova.
+const CACHE = 'nexus-v9';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -9,11 +9,14 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-// prima prova la rete (così ricevi gli aggiornamenti), se non c'è usa la copia salvata
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  // solo i file dell'app: Google (accesso e Drive) passa sempre diretto, senza copie
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
-    fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
-      .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
+    fetch(e.request).then(r => {
+      // prima la rete (così arrivano gli aggiornamenti); si salva in copia solo una risposta buona
+      if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; }
+      return caches.match(e.request).then(c => c || r);
+    }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
   );
 });
