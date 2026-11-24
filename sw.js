@@ -1,6 +1,6 @@
 // NEXUS: copia locale dell'app per usarla anche senza internet.
 // Quando aggiorni l'app, cambia il numero qui sotto, così il telefono scarica la versione nuova.
-const CACHE = 'nexus-v9';
+const CACHE = 'nexus-v11';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

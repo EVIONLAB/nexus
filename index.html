@@ -172,22 +172,6 @@ footer .btns{display:flex;gap:8px;flex-wrap:wrap}
 
 
 
-/* ===== FINESTRA GENERICA: sostituisce le finestrelle del browser ===== */
-function ask({title,text='',input=null,ok='OK',cancel='Annulla',danger=false}){
-  return new Promise(res=>{
-    $('dlgT').textContent=title;$('dlgX').textContent=text;$('dlgX').style.display=text?'':'none';
-    const inp=$('dlgIn');inp.style.display=input?'':'none';
-    if(input){inp.value=input.value||'';inp.placeholder=input.placeholder||'';inp.type=input.type||'text';inp.inputMode=input.mode||'';}
-    $('dlgOk').textContent=ok;$('dlgOk').className=danger?'danger':'pri';$('dlgNo').textContent=cancel;
-    const m=$('dlg');m.classList.add('on');if(input)setTimeout(()=>{inp.focus();inp.select();},60);
-    const done=v=>{m.classList.remove('on');$('dlgOk').onclick=$('dlgNo').onclick=inp.onkeydown=m.onclick=null;res(v);};
-    $('dlgOk').onclick=()=>done(input?inp.value:true);
-    $('dlgNo').onclick=()=>done(null);
-    inp.onkeydown=e=>{if(e.key==='Enter')done(inp.value);if(e.key==='Escape')done(null);};
-    m.onclick=e=>{if(e.target===m)done(null);};
-  });
-}
-
 /* ===== SEZIONI ===== */
 .sections{display:flex;gap:10px;align-items:stretch;overflow-x:auto;margin-bottom:16px;padding:2px 2px 6px;scrollbar-width:none}
 .sections::-webkit-scrollbar{display:none}
@@ -314,6 +298,11 @@ button.danger:hover{background:#c93a3f;color:#fff;border-color:#c93a3f}
 .panel:hover{box-shadow:0 1px 2px rgba(16,24,40,.05),0 14px 34px rgba(16,24,40,.09)}
 :root[data-nx=dark] .panel:hover{box-shadow:0 1px 2px rgba(0,0,0,.4),0 14px 34px rgba(0,0,0,.5)}
 
+/* pulsante elimina nella lista: ben visibile e comodo da toccare */
+.row [data-del]{color:var(--dim);font-size:15px;line-height:1;padding:10px 12px;border-radius:10px}
+.row [data-del]:hover{color:var(--out);background:color-mix(in srgb,var(--out) 10%,transparent)}
+h2 b{white-space:nowrap}
+
 /* ===== TELEFONO ===== */
 @media(max-width:640px){
   .brand .mark{width:24px;height:30px}
@@ -339,7 +328,7 @@ button.danger:hover{background:#c93a3f;color:#fff;border-color:#c93a3f}
   .tools input,.tools select{max-width:none;flex:1;min-width:0}
   input,select{font-size:16px}
   .list{max-height:none;overflow:visible}
-  .row{grid-template-columns:40px 1fr auto 26px;gap:8px;padding:10px 4px}
+  .row{grid-template-columns:40px 1fr auto 38px;gap:8px;padding:10px 4px}
   .row .a{white-space:nowrap;font-size:13px}
   .row .t{font-size:13px}
   .mname{font-size:11px;letter-spacing:.16em}
@@ -441,7 +430,7 @@ button.danger:hover{background:#c93a3f;color:#fff;border-color:#c93a3f}
   </section>
 
   <footer>
-    <div class="foot-info"><b>NEXUS · Finanze personali · v4.0</b><span>Dati salvati solo su questo dispositivo · nessuna connessione</span></div>
+    <div class="foot-info"><b>NEXUS · Finanze personali · v4.2</b><span>Dati salvati solo su questo dispositivo · nessuna connessione</span></div>
     <div class="btns">
       <button id="pinBtn">Imposta PIN</button>
       <button id="expCsv">Esporta CSV</button>
@@ -524,7 +513,7 @@ button.danger:hover{background:#c93a3f;color:#fff;border-color:#c93a3f}
       <label class="lbl" for="sPass" style="margin-top:14px">Password di cifratura</label>
       <input type="password" id="sPass" placeholder="La stessa su tutti i dispositivi" autocomplete="new-password">
       <p class="hint" style="margin-top:8px">Usa la stessa password su PC e telefono. Se la dimentichi, la copia su Drive non si può aprire (i dati sui dispositivi restano).</p>
-      <p class="hint">Indirizzo da autorizzare su Google: <code id="sOrigin"></code></p>
+      <p class="hint">Da inserire su Google, nel Client:<br>• Origine JavaScript: <code id="sOrigin"></code><br>• URI di reindirizzamento: <code id="sRedir"></code></p>
     </div>
     <div id="sOff"><p class="hint">Si sincronizza da solo quando apri l'app, dopo ogni modifica e quando torni online.</p></div>
     <p class="serr" id="sErr" style="display:none"></p>
@@ -1065,6 +1054,22 @@ $('pinIn').addEventListener('keydown',async e=>{if(e.key!=='Enter')return;
 
 
 /* ===== SEZIONI ===== */
+/* ===== FINESTRA GENERICA: sostituisce le finestrelle del browser ===== */
+function ask({title,text='',input=null,ok='OK',cancel='Annulla',danger=false}){
+  return new Promise(res=>{
+    $('dlgT').textContent=title;$('dlgX').textContent=text;$('dlgX').style.display=text?'':'none';
+    const inp=$('dlgIn');inp.style.display=input?'':'none';
+    if(input){inp.value=input.value||'';inp.placeholder=input.placeholder||'';inp.type=input.type||'text';inp.inputMode=input.mode||'';}
+    $('dlgOk').textContent=ok;$('dlgOk').className=danger?'danger':'pri';$('dlgNo').textContent=cancel;
+    const m=$('dlg');m.classList.add('on');if(input)setTimeout(()=>{inp.focus();inp.select();},60);
+    const done=v=>{m.classList.remove('on');$('dlgOk').onclick=$('dlgNo').onclick=inp.onkeydown=m.onclick=null;res(v);};
+    $('dlgOk').onclick=()=>done(input?inp.value:true);
+    $('dlgNo').onclick=()=>done(null);
+    inp.onkeydown=e=>{if(e.key==='Enter')done(inp.value);if(e.key==='Escape')done(null);};
+    m.onclick=e=>{if(e.target===m)done(null);};
+  });
+}
+
 function secBalance(sec){const t=todayStr();return (sec.start||0)+sec.tx.filter(x=>x.date<=t).reduce((s,x)=>s+signed(x),0);}
 function renderSections(){
   const tot=store.sections.reduce((s,x)=>s+secBalance(x),0);
@@ -1170,7 +1175,7 @@ applyTheme(false);
 const SYNC_KEY='nexus_sync', SYNC_FILE='nexus-sync.json', SCOPE='https://www.googleapis.com/auth/drive.appdata';
 let syncCfg={};try{syncCfg=JSON.parse(localStorage.getItem(SYNC_KEY))||{};}catch(e){}
 const saveCfg=()=>{try{localStorage.setItem(SYNC_KEY,JSON.stringify(syncCfg));}catch(e){}};
-let gTok=null,gTokExp=0,syncBusy=false,syncAgain=false,syncTimer=null,syncState='off',syncMsg='';
+let syncBusy=false,syncAgain=false,syncTimer=null,syncState='off',syncMsg='';
 
 // --- cifratura ---
 const b64e=buf=>btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -1191,31 +1196,40 @@ async function decryptObj(p,key){ // con la password sbagliata AES-GCM rifiuta d
 const getKey=()=>crypto.subtle.importKey('jwk',syncCfg.key,{name:'AES-GCM'},false,['encrypt','decrypt']);
 
 // --- accesso a Google ---
-function loadGis(){return new Promise((res,rej)=>{
-  if(window.google?.accounts?.oauth2)return res();
-  const sc=document.createElement('script');sc.src='https://accounts.google.com/gsi/client';sc.async=true;
-  sc.onload=()=>res();sc.onerror=()=>rej(new Error('offline'));document.head.appendChild(sc);});}
-async function getToken(interactive){
-  if(gTok&&Date.now()<gTokExp-60000)return gTok;
-  await loadGis();
-  return new Promise((res,rej)=>{
-    const tc=google.accounts.oauth2.initTokenClient({client_id:syncCfg.clientId,scope:SCOPE,
-      callback:r=>{if(r.error)return rej(new Error(r.error==='access_denied'?'negato':'login'));gTok=r.access_token;gTokExp=Date.now()+(+r.expires_in||3600)*1000;res(gTok);},
-      error_callback:e=>rej(new Error(e&&e.type==='popup_closed'?'chiuso':'login'))});
-    tc.requestAccessToken({prompt:interactive?'':'none'});
-  });
+/* L'app passa alla pagina di accesso di Google e Google la rimanda qui con un "permesso"
+   (token) valido circa un'ora. Il permesso resta salvato su questo dispositivo fino alla scadenza.
+   IMPORTANTE: Google viene aperto SOLO quando tocchi tu un pulsante, mai da solo. */
+const REDIR=location.origin+location.pathname.replace(/index\.html$/,'');
+const tokValid=()=>!!(syncCfg.tok&&Date.now()<(syncCfg.tokExp||0)-60000);
+function startLogin(pending){
+  const st=Math.random().toString(36).slice(2)+Date.now().toString(36);
+  try{sessionStorage.setItem('nx_oauth',JSON.stringify({st,...pending}));}catch(e){}
+  const q=new URLSearchParams({client_id:syncCfg.clientId,redirect_uri:REDIR,response_type:'token',scope:SCOPE,include_granted_scopes:'true',state:st});
+  location.href='https://accounts.google.com/o/oauth2/v2/auth?'+q.toString();
 }
+// al ritorno da Google: legge il permesso dall'indirizzo e lo ripulisce
+function readOAuthReturn(){
+  const h=location.hash;if(!/access_token=|error=/.test(h))return null;
+  const p=new URLSearchParams(h.slice(1));
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(e){location.hash='';}
+  let pend={};try{pend=JSON.parse(sessionStorage.getItem('nx_oauth'))||{};sessionStorage.removeItem('nx_oauth');}catch(e){}
+  if(p.get('error'))return {err:p.get('error')==='access_denied'?'negato':'login',pend};
+  if(!pend.st||p.get('state')!==pend.st)return {err:'login',pend};
+  syncCfg.tok=p.get('access_token');syncCfg.tokExp=Date.now()+(+p.get('expires_in')||3600)*1000;saveCfg();
+  return {ok:true,pend};
+}
+async function getToken(){if(tokValid())return syncCfg.tok;throw new Error('login');}
 async function drive(path,opt={}){
-  const t=await getToken(opt.interactive);
+  const t=await getToken();
   const r=await fetch('https://www.googleapis.com'+path,{method:opt.method||'GET',body:opt.body,headers:{Authorization:'Bearer '+t,...(opt.headers||{})}});
-  if(r.status===401){gTok=null;throw new Error('login');}
+  if(r.status===401){syncCfg.tok=null;saveCfg();throw new Error('login');}
   if(r.status===404)throw new Error('404');
   if(!r.ok)throw new Error('drive'+r.status);
   return r;
 }
-async function findFile(interactive){
+async function findFile(){
   const q=encodeURIComponent(`name='${SYNC_FILE}'`);
-  const l=await (await drive(`/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`,{interactive})).json();
+  const l=await (await drive(`/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`)).json();
   return l.files&&l.files[0]?l.files[0].id:null;
 }
 const readFile=async id=>(await drive(`/drive/v3/files/${id}?alt=media`)).json();
@@ -1255,13 +1269,14 @@ function afterMerge(){
 }
 
 // --- il giro di sincronizzazione ---
-async function syncNow(interactive){
+async function syncNow(){
   if(!syncCfg.connected)return;
+  if(!tokValid()){setSync('login');return;}   // serve un tocco tuo per riaccedere: niente finestre automatiche
   if(syncBusy){syncAgain=true;return;}
   syncBusy=true;setSync('busy');
   try{
     const key=await getKey();
-    let id=syncCfg.fileId||await findFile(interactive);
+    let id=syncCfg.fileId||await findFile();
     let remote=null;
     if(id){try{remote=await readFile(id);}catch(e){if(e.message==='404'){id=await findFile(false);remote=id?await readFile(id):null;}else throw e;}}
     if(remote&&remote.ct){
@@ -1275,23 +1290,30 @@ async function syncNow(interactive){
     syncCfg.last=Date.now();saveCfg();setSync('ok');
   }catch(e){
     const m=e.message;
-    if(m==='login'||m==='chiuso'||m==='negato')setSync('login');
+    if(m==='login'||m==='negato')setSync('login');
     else if(m==='password')setSync('err','La password non corrisponde a quella usata sull\'altro dispositivo.');
     else if(m==='offline'||!navigator.onLine)setSync('offline');
     else setSync('err','Errore di Google Drive ('+m+'). Riprova tra poco.');
   }finally{syncBusy=false;if(syncAgain){syncAgain=false;scheduleSync();}}
 }
-function scheduleSync(){if(!syncCfg.connected)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(false),2500);}
+function scheduleSync(){if(!syncCfg.connected)return;if(!tokValid()){setSync('login');return;}clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(),2500);}
 
 // --- primo collegamento ---
 async function connectDrive(){
   const cid=$('sClient').value.trim(),pass=$('sPass').value;
   if(!/^[\w-]+\.apps\.googleusercontent\.com$/.test(cid))return syncErr('Il Client ID deve finire con .apps.googleusercontent.com');
   if(pass.length<6)return syncErr('Scegli una password di almeno 6 caratteri.');
-  syncErr('');$('sGo').disabled=true;$('sGo').textContent='Collegamento…';
+  syncErr('');
+  if(syncCfg.clientId!==cid){syncCfg={clientId:cid};}
+  saveCfg();
+  if(!tokValid()){startLogin({mode:'connect',pass});return;}   // vai su Google, poi si torna qui e si prosegue
+  await finishConnect(pass);
+}
+async function finishConnect(pass){
+  const cid=syncCfg.clientId;
+  $('sGo').disabled=true;$('sGo').textContent='Collegamento…';
   try{
-    syncCfg={clientId:cid};gTok=null;
-    const id=await findFile(true);                       // qui si apre la finestra di Google
+    const id=await findFile();
     let salt;
     if(id){                                             // c'è già un file: uso la sua "chiave" e controllo la password
       const remote=await readFile(id);salt=remote.salt;
@@ -1310,26 +1332,27 @@ async function connectDrive(){
       syncCfg.key=await crypto.subtle.exportKey('jwk',await deriveKey(pass,salt));
     }
     Object.assign(syncCfg,{salt,fileId:id,connected:true});saveCfg();
-    $('sPass').value='';await syncNow(false);drawSyncModal();
+    $('sPass').value='';await syncNow();
     toast(id?'DATI UNITI DA GOOGLE DRIVE':'SINCRONIZZAZIONE ATTIVA');
   }catch(e){
-    syncCfg={clientId:cid};saveCfg();
+    const tok=syncCfg.tok,exp=syncCfg.tokExp;syncCfg={clientId:cid,tok,tokExp:exp};saveCfg();
+    $('syncModal').classList.add('on');
     syncErr(e.message==='password'?'Password sbagliata: sull\'altro dispositivo ne hai usata un\'altra.'
-      :e.message==='offline'?'Non riesco a raggiungere Google: controlla internet.'
-      :e.message==='chiuso'?'Hai chiuso la finestra di Google prima di finire.'
+      :e.message==='offline'||!navigator.onLine?'Non riesco a raggiungere Google: controlla internet.'
       :e.message==='negato'?'Hai negato il permesso a Google Drive.'
-      :'Accesso non riuscito. Controlla il Client ID e che questo indirizzo sia tra le "origini autorizzate".');
+      :'Accesso non riuscito ('+e.message+'). Controlla il Client ID e gli indirizzi autorizzati su Google.');
   }finally{$('sGo').disabled=false;drawSyncModal();}
 }
 function disconnectDrive(){
   ask({title:'Scollegare Google Drive?',text:'I dati restano su questo dispositivo e su Drive, ma smettono di sincronizzarsi.',ok:'Scollega',danger:true}).then(ok=>{
-    if(!ok)return;try{if(gTok&&window.google)google.accounts.oauth2.revoke(gTok,()=>{});}catch(e){}
-    syncCfg={clientId:syncCfg.clientId};gTok=null;saveCfg();setSync('off');drawSyncModal();toast('SINCRONIZZAZIONE DISATTIVATA');});
+    if(!ok)return;
+    try{if(syncCfg.tok)fetch('https://oauth2.googleapis.com/revoke?token='+encodeURIComponent(syncCfg.tok),{method:'POST',mode:'no-cors'});}catch(e){}
+    syncCfg={clientId:syncCfg.clientId};saveCfg();setSync('off');drawSyncModal();toast('SINCRONIZZAZIONE DISATTIVATA');});
 }
 
 // --- stato e finestra ---
 const SY={off:['Non attiva','var(--dim)'],busy:['Sincronizzo…','var(--acc)'],ok:['Sincronizzato','var(--in)'],
-  login:['Tocca per riconnettere','var(--warn)'],offline:['Offline: sincronizzo quando torna internet','var(--dim)'],err:['Errore','var(--out)']};
+  login:['Tocca la nuvola per riaccedere a Google','var(--warn)'],offline:['Offline: sincronizzo quando torna internet','var(--dim)'],err:['Errore','var(--out)']};
 function setSync(st,msg){syncState=st;syncMsg=msg||'';
   const b=$('syncBtn');b.dataset.st=st;b.title='Sincronizzazione: '+SY[st][0];
   $('syncDot').style.background=SY[st][1];if($('syncModal').classList.contains('on'))drawSyncModal();}
@@ -1342,17 +1365,27 @@ function drawSyncModal(){
   $('sStatus').innerHTML=on?`<span class="sdot" style="background:${SY[syncState][1]}"></span><b>${SY[syncState][0]}</b> · ultima volta: ${t}${syncMsg?`<br><span style="color:var(--out)">${esc(syncMsg)}</span>`:''}`
     :`<span class="sdot" style="background:var(--dim)"></span><b>Non attiva</b> · i dati restano solo su questo dispositivo`;
   $('sGo').textContent=on?'Sincronizza ora':'Collega Google Drive';
-  $('sOrigin').textContent=location.origin;
+  $('sOrigin').textContent=location.origin;$('sRedir').textContent=REDIR;
 }
-$('syncBtn').onclick=()=>{if(syncCfg.connected&&syncState==='login'){syncNow(true);return;}syncErr('');drawSyncModal();$('syncModal').classList.add('on');};
-$('sGo').onclick=()=>{if(syncCfg.connected)syncNow(true);else connectDrive();};
+$('syncBtn').onclick=()=>{if(syncCfg.connected&&syncState==='login'){startLogin({mode:'sync'});return;}syncErr('');drawSyncModal();$('syncModal').classList.add('on');};
+$('sGo').onclick=()=>{if(!syncCfg.connected)return connectDrive();if(tokValid())syncNow();else startLogin({mode:'sync'});};
 $('sOffBtn').onclick=disconnectDrive;
 $('sClose').onclick=()=>$('syncModal').classList.remove('on');
 // sincronizza all'apertura, quando torni sull'app e quando torna internet
 syncReady=true;
-if(syncCfg.connected){setSync('ok');setTimeout(()=>syncNow(false),900);}else setSync('off');
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syncCfg.connected&&Date.now()-(syncCfg.last||0)>20000)syncNow(false);});
-window.addEventListener('online',()=>{if(syncCfg.connected)syncNow(false);});
+(function(){
+  const back=readOAuthReturn();                       // stiamo tornando da Google?
+  if(back&&back.err){setSync(syncCfg.connected?'login':'off');$('syncModal').classList.add('on');drawSyncModal();
+    syncErr(back.err==='negato'?'Hai negato il permesso a Google Drive.':'Accesso a Google non riuscito. Riprova.');return;}
+  if(back&&back.pend.mode==='connect'){$('syncModal').classList.add('on');drawSyncModal();finishConnect(back.pend.pass||'');return;}
+  if(syncCfg.connected){setSync(tokValid()?'ok':'login');setTimeout(()=>syncNow(),900);}else setSync('off');
+})();
+// quando torni sull'app o torna internet: sincronizza, ma SOLO se il permesso di Google è ancora valido
+let lastVis=0;
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible'||!syncCfg.connected||!tokValid())return;
+  if(Date.now()-lastVis<20000||Date.now()-(syncCfg.last||0)<20000)return;lastVis=Date.now();syncNow();});
+window.addEventListener('online',()=>{if(syncCfg.connected&&tokValid())syncNow();});
 
 /* orologio */
 function tick(){const d=new Date();$('clock').textContent=d.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short'}).toUpperCase()+' · '+d.toLocaleTimeString('it-IT');}
