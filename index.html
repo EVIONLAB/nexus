@@ -701,7 +701,7 @@ body::before{display:none!important}
   </div>
 
   <footer>
-    <div class="foot-info"><b>NEXUS · Finanze personali · v5.4</b><span>Dati salvati solo su questo dispositivo · nessuna connessione</span></div>
+    <div class="foot-info"><b>NEXUS · Finanze personali · v5.4.1</b><span>Dati salvati solo su questo dispositivo · nessuna connessione</span></div>
     <div class="btns">
       <button id="pinBtn">Imposta PIN</button>
       <button id="expCsv">Esporta CSV</button>
@@ -2297,7 +2297,12 @@ if(store.pin){$('lock').classList.add('on');setTimeout(()=>$('pinIn').focus(),50
 render();
 
 /* app installabile: funziona offline (solo se aperta da un sito https, non da file) */
-if('serviceWorker' in navigator && location.protocol.startsWith('http')){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+// aggiornamenti: all'apertura (e ogni ora) controlla se su GitHub c'è una versione nuova; se sì la installa e ricarica la pagina una volta
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  const hadCtrl=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadCtrl&&!reloaded){reloaded=true;location.reload();}});
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});setInterval(()=>r.update().catch(()=>{}),3600000);}).catch(()=>{});
+}
 </script>
 </body>
 </html>
